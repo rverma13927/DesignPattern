@@ -1,0 +1,36 @@
+package org.example.designProblems.practice.tictactoe.abstractclass;
+
+public abstract class Move {
+    private int x;
+    private int y;
+    private Iplayer iplayer;
+
+    public Move(int x, int y, Iplayer iplayer) {
+        this.x = x;
+        this.y = y;
+        this.iplayer = iplayer;
+    }
+    public int getX() {
+        return x;
+    }
+
+    public void setX(int x) {
+        this.x = x;
+    }
+
+    public int getY() {
+        return y;
+    }
+
+    public void setY(int y) {
+        this.y = y;
+    }
+
+    public Iplayer getIplayer() {
+        return iplayer;
+    }
+
+    public void setIplayer(Iplayer iplayer) {
+        this.iplayer = iplayer;
+    }
+}

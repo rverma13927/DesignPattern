@@ -33,7 +33,7 @@ class FixedDepositAccount extends BankAccount {
         throw new UnsupportedOperationException("Cannot withdraw from Fixed Deposit Account");
     }
 }
-class Main {
+class Main33 {
     public static void main(String[] args) {
         BankAccount account = new FixedDepositAccount(1000);
         account.withdraw(500);  // Throws exception unexpectedly

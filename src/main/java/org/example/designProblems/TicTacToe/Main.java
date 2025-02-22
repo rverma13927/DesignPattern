@@ -1,6 +1,7 @@
 package org.example.designProblems.TicTacToe;
 
-import TicTacToe.model.Player;
+
+import org.example.designProblems.TicTacToe.model.Player;
 
 public class Main {
 

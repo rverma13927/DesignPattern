@@ -58,7 +58,7 @@ class FixedDepositAccount1 implements Account {
     }
 }
 
-public class Main {
+ class Main {
     public static void main(String[] args) {
         WithdrawableAccount savings = new SavingsAccount(1000);
         savings.withdraw(500);
