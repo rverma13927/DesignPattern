@@ -25,10 +25,11 @@ public class TripManager {
     }
 
     public Optional<Trip> creatTrip(Trip trip,PricingStrategy pricingStrategy,MatchingStrategy matchingStrategy){
-        Optional<Driver> match = matchingStrategy.match(trip);
+        DriverManager driverManager = DriverManager.getDriverManagerInstance();
+        Optional<Driver> driver = driverManager.getDriver(matchingStrategy);
         double v = pricingStrategy.calculatePrice(trip);
-        if(match.isPresent()) {
-            trip.setDriver(match.get());
+        if(driver.isPresent()) {
+            trip.setDriver(driver.get());
             trip.setPrice(v);
             trip.setPaymentStatus(PaymentStatus.COMPLETED);
             tripMap.put(trip.getId(), trip);

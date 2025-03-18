@@ -27,10 +27,15 @@ public class DriverManager {
         driverMap.put(driver.id,driver);
         return true;
     }
-    public Optional<Driver> getDriver(){
+
+    public Map<Integer, Driver> getAllDriver(){
+        return driverMap;
+    }
+    public Optional<Driver> getDriver(MatchingStrategy matchingStrategy){
         if (driverMap.isEmpty()) {
             throw new IllegalStateException("No drivers available");
         }
-        return Optional.of(driverMap.get(1));
+        Optional<Driver> match = matchingStrategy.match(driverMap);
+        return match;
     }
 }

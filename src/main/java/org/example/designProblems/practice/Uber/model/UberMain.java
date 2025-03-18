@@ -5,7 +5,7 @@ import java.util.Optional;
 class UberMain {
     public static void main(String[] args) {
         Rider rider =new Rider(1,"Test");
-        Driver driver =new Driver(1,"Test2");
+        Driver driver =new Driver(1,"Test2",1);
 
         RiderManager riderManager = new RiderManager();
         riderManager.addRider(rider);
