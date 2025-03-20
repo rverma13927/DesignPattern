@@ -8,7 +8,12 @@ public class DBCleanupTask extends AbstractTask{
     }
 
     @Override
-    public void execute() {
-        System.out.println("Testing db cleanup");
+    public void execute() throws InterruptedException {
+        System.out.println("Testing " + this.getName());
+        try {
+            Thread.sleep(5000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 }
