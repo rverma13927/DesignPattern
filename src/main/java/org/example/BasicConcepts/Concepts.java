@@ -1,4 +1,4 @@
-package org.example.BasicOfOOP;
+package org.example.BasicConcepts;
 
 class Bird {
     public void sing() {
