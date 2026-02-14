@@ -215,6 +215,9 @@
 package org.example.practice.NOTIFICATION;
 
 import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.*;
 
 // ======================= ENUMS =======================
 
@@ -271,99 +274,139 @@ class Notification {
 // ======================= REPOSITORIES =======================
 
 interface NotificationRepository {
-    void save(Notification notification);
-    Notification findById(int id);
+    Optional<Notification> findById(int id);
+    int save(Notification notification);
 }
 
 class InMemoryNotificationRepository implements NotificationRepository {
 
-    private final Map<Integer, Notification> store = new HashMap<>();
-    private int idCounter = 1;
+    private final Map<Integer, Notification> store = new ConcurrentHashMap<>();
+    private final AtomicInteger idCounter = new AtomicInteger(1);
+    private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
     @Override
-    public void save(Notification notification) {
-        notification.setId(idCounter++);
-        store.put(notification.getId(), notification);
+    public int save(Notification notification) {
+        lock.writeLock().lock();
+        try {
+            int id = idCounter.getAndIncrement();
+            notification.setId(id);
+            store.put(id, notification);
+            return id;
+        } finally {
+            lock.writeLock().unlock();
+        }
     }
 
     @Override
-    public Notification findById(int id) {
-        return store.get(id);
+    public Optional<Notification> findById(int id) {
+        lock.readLock().lock();
+        try {
+            return Optional.ofNullable(store.get(id));
+        } finally {
+            lock.readLock().unlock();
+        }
     }
 }
 
 // ======================= SERVICES =======================
 
 interface NotificationService {
-    void send(User user, String message);
+    CompletableFuture<Void> send(User user, String message);
 }
 
 class EmailNotificationService implements NotificationService {
 
     private final NotificationRepository repository;
+    private final ExecutorService executorService;
 
     public EmailNotificationService(NotificationRepository repository) {
         this.repository = repository;
+        this.executorService = Executors.newCachedThreadPool();
     }
 
     @Override
-    public void send(User user, String message) {
-        System.out.println("Sending EMAIL to " + user.getEmail());
+    public CompletableFuture<Void> send(User user, String message) {
+        return CompletableFuture.runAsync(() -> {
+            try {
+                System.out.println("Sending EMAIL to " + user.getEmail());
 
-        Notification notification = new Notification(
-                user,
-                NotificationType.EMAIL,
-                NotificationStatus.SENT,
-                message
-        );
+                Notification notification = new Notification(
+                        user,
+                        NotificationType.EMAIL,
+                        NotificationStatus.SENT,
+                        message
+                );
 
-        repository.save(notification);
+                repository.save(notification);
+            } catch (Exception e) {
+                System.err.println("Failed to send email: " + e.getMessage());
+                throw new RuntimeException(e);
+            }
+        }, executorService);
     }
 }
 
 class SmsNotificationService implements NotificationService {
 
     private final NotificationRepository repository;
+    private final ExecutorService executorService;
 
     public SmsNotificationService(NotificationRepository repository) {
         this.repository = repository;
+        this.executorService = Executors.newCachedThreadPool();
     }
 
     @Override
-    public void send(User user, String message) {
-        System.out.println("Sending SMS to " + user.getMobileNumber());
+    public CompletableFuture<Void> send(User user, String message) {
+        return CompletableFuture.runAsync(() -> {
+            try {
+                System.out.println("Sending SMS to " + user.getMobileNumber());
 
-        Notification notification = new Notification(
-                user,
-                NotificationType.SMS,
-                NotificationStatus.SENT,
-                message
-        );
+                Notification notification = new Notification(
+                        user,
+                        NotificationType.SMS,
+                        NotificationStatus.SENT,
+                        message
+                );
 
-        repository.save(notification);
+                repository.save(notification);
+            } catch (Exception e) {
+                System.err.println("Failed to send SMS: " + e.getMessage());
+                throw new RuntimeException(e);
+            }
+        }, executorService);
     }
 }
 
 class PushNotificationService implements NotificationService {
 
     private final NotificationRepository repository;
+    private final ExecutorService executorService;
 
     public PushNotificationService(NotificationRepository repository) {
         this.repository = repository;
+        this.executorService = Executors.newCachedThreadPool();
     }
 
     @Override
-    public void send(User user, String message) {
-        System.out.println("Sending PUSH notification");
+    public CompletableFuture<Void> send(User user, String message) {
+        return CompletableFuture.runAsync(() -> {
+            try {
+                System.out.println("Sending PUSH notification");
 
-        Notification notification = new Notification(
-                user,
-                NotificationType.PUSH,
-                NotificationStatus.SENT,
-                message
-        );
+                Notification notification = new Notification(
+                        user,
+                        NotificationType.PUSH,
+                        NotificationStatus.SENT,
+                        message
+                );
 
-        repository.save(notification);
+                repository.save(notification);
+            } catch (Exception e) {
+                System.err.println("Failed to send push notification: " + e.getMessage());
+                throw new RuntimeException(e);
+            }
+        }, executorService);
     }
 }
 
@@ -377,12 +420,8 @@ class NotificationFactory {
         this.serviceMap = serviceMap;
     }
 
-    public NotificationService getService(NotificationType type) {
-        NotificationService service = serviceMap.get(type);
-        if (service == null) {
-            throw new IllegalArgumentException("Unsupported notification type: " + type);
-        }
-        return service;
+    public Optional<NotificationService> getService(NotificationType type) {
+        return Optional.ofNullable(serviceMap.get(type));
     }
 }
 
@@ -391,14 +430,47 @@ class NotificationFactory {
 class NotificationController {
 
     private final NotificationFactory factory;
+    private final ExecutorService executorService;
 
     public NotificationController(NotificationFactory factory) {
         this.factory = factory;
+        this.executorService = Executors.newFixedThreadPool(10);
     }
 
-    public void sendNotification(User user, String message, NotificationType type) {
-        NotificationService service = factory.getService(type);
-        service.send(user, message);
+    public CompletableFuture<Void> sendNotification(User user, String message, NotificationType type) {
+        return CompletableFuture.supplyAsync(() -> {
+            Optional<NotificationService> serviceOpt = factory.getService(type);
+            if (serviceOpt.isPresent()) {
+                return serviceOpt.get();
+            } else {
+                throw new IllegalArgumentException("Unsupported notification type: " + type);
+            }
+        }, executorService).thenCompose(service -> service.send(user, message));
+    }
+
+    public CompletableFuture<Void> sendNotificationAsync(User user, String message, NotificationType type) {
+        return sendNotification(user, message, type);
+    }
+
+    public void sendNotificationSync(User user, String message, NotificationType type) {
+        try {
+            sendNotification(user, message, type).get(5, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            System.err.println("Failed to send notification: " + e.getMessage());
+            throw new RuntimeException(e);
+        }
+    }
+
+    public void shutdown() {
+        executorService.shutdown();
+        try {
+            if (!executorService.awaitTermination(60, TimeUnit.SECONDS)) {
+                executorService.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            executorService.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
     }
 
     // ======================= MAIN =======================
@@ -417,8 +489,28 @@ class NotificationController {
 
         User user = new User(1, "Rahul", "abc@example.com", "9999999999");
 
-        controller.sendNotification(user, "Hello via Email", NotificationType.EMAIL);
-        controller.sendNotification(user, "Hello via SMS", NotificationType.SMS);
-        controller.sendNotification(user, "Hello via Push", NotificationType.PUSH);
+        try {
+            // Async notifications
+            CompletableFuture<Void> emailFuture = controller.sendNotificationAsync(user, "Hello via Email", NotificationType.EMAIL);
+            CompletableFuture<Void> smsFuture = controller.sendNotificationAsync(user, "Hello via SMS", NotificationType.SMS);
+            CompletableFuture<Void> pushFuture = controller.sendNotificationAsync(user, "Hello via Push", NotificationType.PUSH);
+
+            // Wait for all to complete
+            CompletableFuture.allOf(emailFuture, smsFuture, pushFuture)
+                .thenRun(() -> System.out.println("All notifications sent successfully!"))
+                .exceptionally(e -> {
+                    System.err.println("Some notifications failed: " + e.getMessage());
+                    return null;
+                })
+                .join();
+
+            // Sync example
+            System.out.println("\nSending sync notification...");
+            controller.sendNotificationSync(user, "Sync message", NotificationType.EMAIL);
+            System.out.println("Sync notification sent!");
+
+        } finally {
+            controller.shutdown();
+        }
     }
 }
