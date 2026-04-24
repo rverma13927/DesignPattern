@@ -280,10 +280,10 @@ interface NotificationRepository {
 
 class InMemoryNotificationRepository implements NotificationRepository {
 
-    private final Map<Integer, Notification> store = new ConcurrentHashMap<>();
+    private final Map<Integer, Notification> store = new ConcurrentHashMap<>(); 
     private final AtomicInteger idCounter = new AtomicInteger(1);
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
-
+    // using ConcurrentHashMap and ReentrantReadWriteLock is redundant since ConcurrentHashMap is already thread safe
     @Override
     public int save(Notification notification) {
         lock.writeLock().lock();
