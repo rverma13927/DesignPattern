@@ -284,6 +284,27 @@ class InMemoryNotificationRepository implements NotificationRepository {
     private final AtomicInteger idCounter = new AtomicInteger(1);
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
     // using ConcurrentHashMap and ReentrantReadWriteLock is redundant since ConcurrentHashMap is already thread safe
+
+/*
+  class InMemoryNotificationRepository implements NotificationRepository {
+
+    private final Map<Integer, Notification> store = new ConcurrentHashMap<>();
+    private final AtomicInteger idCounter = new AtomicInteger(1);
+
+    @Override
+    public int save(Notification notification) {
+        int id = idCounter.getAndIncrement();
+        notification.setId(id);
+        store.put(id, notification);
+        return id;
+    }
+
+    @Override
+    public Optional<Notification> findById(int id) {
+        return Optional.ofNullable(store.get(id));
+    }
+    }
+    */
     @Override
     public int save(Notification notification) {
         lock.writeLock().lock();
